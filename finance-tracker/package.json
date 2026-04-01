@@ -1,6 +1,9 @@
 {
   "name": "finance-tracker",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "npx vite build",
