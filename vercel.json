@@ -1,8 +1,6 @@
 {
-  "rootDirectory": "finance-tracker",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
+  "buildCommand": "cd finance-tracker && npm install && npm run build",
+  "outputDirectory": "finance-tracker/dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
