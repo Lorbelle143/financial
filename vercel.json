@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd finance-tracker && npm install && npm run build",
+  "outputDirectory": "finance-tracker/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
