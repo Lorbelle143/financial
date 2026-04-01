@@ -1,11 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "target": "ES2020",
+    "module": "ESNext",
     "lib": ["ES2017", "DOM"],
     "strict": true,
     "skipLibCheck": true,
     "outDir": ".",
-    "rootDir": "."
+    "rootDir": ".",
+    "moduleResolution": "bundler"
   },
   "files": ["app.ts"]
 }

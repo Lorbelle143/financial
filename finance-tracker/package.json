@@ -9,6 +9,9 @@
     "build": "npx vite build",
     "preview": "npx vite preview"
   },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4"
+  },
   "devDependencies": {
     "typescript": "^6.0.2",
     "vite": "^8.0.3"

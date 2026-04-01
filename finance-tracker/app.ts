@@ -1,3 +1,5 @@
+import { syncToCloud, loadFromCloud } from "./src/supabase";
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Transaction {
   id: string;
@@ -248,6 +250,10 @@ function load<T>(key: string, fallback: T): T {
 }
 function save(key: string, val: unknown): void {
   localStorage.setItem(key, JSON.stringify(val));
+  // Debounced cloud sync after any save
+  if (key === SK) {
+    syncToCloud({ transactions, accounts, budgets, goals, debts, installments }).catch(() => {});
+  }
 }
 function saveAll(): void {
   save(SK, transactions);
@@ -256,6 +262,8 @@ function saveAll(): void {
   save(GK, goals);
   save(DK, debts);
   save(IK, installments);
+  // Sync to Supabase in background
+  syncToCloud({ transactions, accounts, budgets, goals, debts, installments }).catch(() => {});
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -2005,6 +2013,20 @@ if (load<boolean>("ft_notif", false) && Notification.permission === "granted") {
   notifBtn.style.color = "var(--income)";
   scheduleNotifications();
 }
+
+// Load from Supabase cloud on startup
+loadFromCloud().then(cloudData => {
+  if (!cloudData) return;
+  const d = cloudData as Record<string, unknown>;
+  if (d.transactions) { transactions = d.transactions as typeof transactions; save(SK, transactions); }
+  if (d.accounts)     { accounts     = d.accounts     as typeof accounts;     save(AK, accounts); }
+  if (d.budgets)      { budgets      = d.budgets       as typeof budgets;      save(BK, budgets); }
+  if (d.goals)        { goals        = d.goals         as typeof goals;        save(GK, goals); }
+  if (d.debts)        { debts        = d.debts         as typeof debts;        save(DK, debts); }
+  if (d.installments) { installments = d.installments  as typeof installments; save(IK, installments); }
+  render();
+  toast("Data synced from cloud ☁️", "info");
+}).catch(() => {});
 
 // Show keyboard hint briefly on load
 const hint = $<HTMLDivElement>("shortcut-hint");
