@@ -1,4 +1,4 @@
-import { syncToCloud, loadFromCloud } from "./src/supabase";
+import { syncToCloud, loadFromCloud, signIn, signUp, signInWithGoogle, signOut, onAuthChange, getUser } from "./src/supabase";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Transaction {
@@ -240,6 +240,28 @@ const bulkCancelBtn    = $<HTMLButtonElement>("bulk-cancel-btn");
 // Notifications & PWA
 const notifBtn         = $<HTMLButtonElement>("notif-btn");
 const installBtn       = $<HTMLButtonElement>("install-btn");
+
+// Auth
+const authScreen       = $<HTMLDivElement>("auth-screen");
+const authForm         = $<HTMLFormElement>("auth-form");
+const authEmail        = $<HTMLInputElement>("auth-email");
+const authPassword     = $<HTMLInputElement>("auth-password");
+const authSubmit       = $<HTMLButtonElement>("auth-submit");
+const authError        = $<HTMLParagraphElement>("auth-error");
+const authGoogleBtn    = $<HTMLButtonElement>("auth-google");
+const authSkip         = $<HTMLParagraphElement>("auth-skip");
+const userInfo         = $<HTMLDivElement>("user-info");
+const userEmailEl      = $<HTMLSpanElement>("user-email");
+const logoutBtn        = $<HTMLButtonElement>("logout-btn");
+
+// Sort
+const sortSelect       = $<HTMLSelectElement>("sort-select");
+
+// Calculator
+const calcLoanBtn      = $<HTMLButtonElement>("calc-loan-btn");
+const calcSavBtn       = $<HTMLButtonElement>("calc-sav-btn");
+const loanResult       = $<HTMLDivElement>("loan-result");
+const savResult        = $<HTMLDivElement>("sav-result");
 
 dateInput.valueAsDate = new Date();
 
@@ -572,7 +594,20 @@ function renderBudgets(): void {
 
 // ── Render Transaction List (paginated) ───────────────────────────────────────
 function renderList(): void {
-  const list = filtered().sort((a, b) => b.date.localeCompare(a.date));
+  const q = searchInput.value.toLowerCase();
+  const sortVal = sortSelect?.value || "date-desc";
+  let list = filtered();
+
+  // Sort
+  list = [...list].sort((a, b) => {
+    switch (sortVal) {
+      case "date-asc":     return a.date.localeCompare(b.date);
+      case "amount-desc":  return b.amount - a.amount;
+      case "amount-asc":   return a.amount - b.amount;
+      case "category-asc": return a.category.localeCompare(b.category);
+      default:             return b.date.localeCompare(a.date);
+    }
+  });
   const total = list.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
@@ -590,12 +625,13 @@ function renderList(): void {
       ? t.tags.map(tag => `<span class="tag">${esc(tag)}</span>`).join("")
       : "";
     const checked = selectedIds.has(t.id) ? "checked" : "";
+    const descHtml = q ? highlight(esc(t.desc), q) : esc(t.desc);
     return `<div class="transaction-item ${t.type} ${selectedIds.has(t.id) ? "selected" : ""}">
       <label class="bulk-check" title="Select">
         <input type="checkbox" class="tx-checkbox" data-id="${t.id}" ${checked}/>
       </label>
       <div class="tx-info">
-        <span class="tx-desc">${esc(t.desc)}${t.recurring ? ' <span class="recurring-badge">🔁</span>' : ""}</span>
+        <span class="tx-desc">${descHtml}${t.recurring ? ' <span class="recurring-badge">🔁</span>' : ""}</span>
         <span class="tx-meta">${t.category} · ${accName} · ${fmtDate(t.date)}</span>
         ${t.notes ? `<span class="tx-notes">${esc(t.notes)}</span>` : ""}
         ${tagsHtml ? `<div class="tx-tags">${tagsHtml}</div>` : ""}
@@ -1634,3 +1670,573 @@ window.addEventListener("appinstalled", () => {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
+
+// ── Search Highlight ──────────────────────────────────────────────────────────function highlight(text: string, query: string): string {
+  if (!query) return text;
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+  return text.replace(re, '<mark class="search-highlight">$1</mark>');
+}
+
+// ── Collapsible Panels ────────────────────────────────────────────────────────
+function initCollapsible(): void {
+  const CKEY = "ft_collapsed";
+  let col: Set<string>;
+  try { col = new Set(JSON.parse(localStorage.getItem(CKEY) || "[]")); }
+  catch { col = new Set(); }
+
+  const applyPanel = (panelId: string, body: HTMLElement, arrow?: HTMLElement | null) => {
+    const isCol = col.has(panelId);
+    body.style.display = isCol ? "none" : "";
+    if (arrow) arrow.style.transform = isCol ? "rotate(-90deg)" : "";
+  };
+
+  const toggle = (panelId: string, body: HTMLElement, arrow?: HTMLElement | null) => {
+    if (col.has(panelId)) col.delete(panelId);
+    else col.add(panelId);
+    localStorage.setItem(CKEY, JSON.stringify([...col]));
+    applyPanel(panelId, body, arrow);
+  };
+
+  // Pattern 1: collapsible-header (click whole header)
+  document.querySelectorAll<HTMLDivElement>(".collapsible-header").forEach(header => {
+    const panelId = header.dataset.panel!;
+    const panel   = header.closest(".collapsible-panel") as HTMLElement;
+    const body    = panel?.querySelector<HTMLElement>(".panel-body");
+    const arrow   = header.querySelector<HTMLElement>(".collapse-arrow");
+    if (!body) return;
+    applyPanel(panelId, body, arrow);
+    header.addEventListener("click", () => toggle(panelId, body, arrow));
+  });
+
+  // Pattern 2: collapse-toggle buttons
+  document.querySelectorAll<HTMLButtonElement>(".collapse-toggle").forEach(btn => {
+    const panelId = btn.dataset.panel!;
+    const panel   = document.getElementById(panelId);
+    const body    = panel?.querySelector<HTMLElement>(".panel-body");
+    if (!body) return;
+    applyPanel(panelId, body, btn);
+    btn.addEventListener("click", e => { e.stopPropagation(); toggle(panelId, body, btn); });
+  });
+}
+function highlight(text: string, q: string): string {
+  if (!q) return text;
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(${escaped})`, "gi");
+  return text.replace(re, '<mark class="search-highlight">$1</mark>');
+}
+
+// ── Calculator ────────────────────────────────────────────────────────────────
+function calcLoan(): void {
+  const P = parseFloat(($<HTMLInputElement>("loan-principal")).value);
+  const r = parseFloat(($<HTMLInputElement>("loan-rate")).value) / 100 / 12;
+  const n = parseInt(($<HTMLInputElement>("loan-term")).value);
+  if (isNaN(P) || isNaN(r) || isNaN(n) || n < 1 || P < 1) return;
+
+  const monthly = r === 0 ? P / n : (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  const total   = monthly * n;
+  const interest = total - P;
+
+  loanResult.classList.remove("hidden");
+  loanResult.innerHTML = `
+    <div class="calc-grid">
+      <div class="calc-item"><span class="calc-label">Monthly Payment</span><span class="calc-val accent">${peso(monthly)}</span></div>
+      <div class="calc-item"><span class="calc-label">Total Amount</span><span class="calc-val">${peso(total)}</span></div>
+      <div class="calc-item"><span class="calc-label">Total Interest</span><span class="calc-val expense">${peso(interest)}</span></div>
+      <div class="calc-item"><span class="calc-label">Principal</span><span class="calc-val income">${peso(P)}</span></div>
+    </div>`;
+}
+
+function calcSavings(): void {
+  const m = parseFloat(($<HTMLInputElement>("sav-monthly")).value);
+  const r = parseFloat(($<HTMLInputElement>("sav-rate")).value) / 100 / 12;
+  const n = parseInt(($<HTMLInputElement>("sav-months")).value);
+  if (isNaN(m) || isNaN(n) || n < 1 || m < 1) return;
+
+  const total = r === 0
+    ? m * n
+    : m * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+  const contributed = m * n;
+  const interest    = total - contributed;
+
+  savResult.classList.remove("hidden");
+  savResult.innerHTML = `
+    <div class="calc-grid">
+      <div class="calc-item"><span class="calc-label">Final Amount</span><span class="calc-val accent">${peso(total)}</span></div>
+      <div class="calc-item"><span class="calc-label">Total Contributed</span><span class="calc-val income">${peso(contributed)}</span></div>
+      <div class="calc-item"><span class="calc-label">Interest Earned</span><span class="calc-val savings">${peso(interest)}</span></div>
+      <div class="calc-item"><span class="calc-label">Monthly Savings</span><span class="calc-val">${peso(m)}</span></div>
+    </div>`;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let authMode: "login" | "signup" = "login";
+
+function showAuthScreen(): void { authScreen.classList.remove("hidden"); }
+function hideAuthScreen(): void { authScreen.classList.add("hidden"); }
+
+function setAuthMode(mode: "login" | "signup"): void {
+  authMode = mode;
+  authSubmit.textContent = mode === "login" ? "Sign In" : "Create Account";
+  document.querySelectorAll<HTMLButtonElement>(".auth-tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.auth === mode);
+  });
+  authError.classList.add("hidden");
+}
+
+function showUserInfo(email: string): void {
+  userEmailEl.textContent = email;
+  userInfo.classList.remove("hidden");
+}
+
+// ── Offline Indicator ─────────────────────────────────────────────────────────
+function initOfflineIndicator(): void {
+  const banner = $<HTMLDivElement>("offline-banner");
+  const update = () => banner.classList.toggle("hidden", navigator.onLine);
+  update();
+  window.addEventListener("online",  update);
+  window.addEventListener("offline", update);
+}
+
+// ── Render All ────────────────────────────────────────────────────────────────
+function render(): void {
+  populateAccountSelects();
+  populateMonthFilter();
+  populateAnnualYears();
+  renderAccountTabs();
+  renderSummary();
+  renderBudgets();
+  renderList();
+  renderPie();
+  renderInsights();
+  renderGoals();
+  renderDebts();
+  renderInstallments();
+  renderWeeklySummary();
+  renderHeatmap();
+  renderAnnual();
+  if (!$<HTMLDivElement>("tab-bar").classList.contains("hidden")) renderBar();
+  if (!$<HTMLDivElement>("tab-line").classList.contains("hidden")) renderLine();
+  if (!$<HTMLDivElement>("tab-cal").classList.contains("hidden")) renderCalendar();
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const desc      = descInput.value.trim();
+  const amount    = parseFloat(amountInput.value);
+  const type      = typeSelect.value as "income" | "expense";
+  const date      = dateInput.value;
+  const recurring = recurringChk.checked;
+  const notes     = notesInput.value.trim();
+  const tags      = tagsInput.value.split(",").map(t => t.trim()).filter(Boolean);
+  const account   = accountSelect.value || accounts[0]?.id || "default";
+
+  let category = categorySelect.value;
+  const suggested = autoCategory(desc);
+  if (suggested && category === "Food") category = suggested;
+
+  if (!desc || isNaN(amount) || amount <= 0 || !date) return;
+
+  const twoDaysAgo = new Date(date);
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  const dupExists = transactions.some(t =>
+    t.desc.toLowerCase() === desc.toLowerCase() &&
+    t.amount === amount && t.type === type &&
+    new Date(t.date) >= twoDaysAgo
+  );
+  if (dupExists) toast(`⚠ Possible duplicate: "${desc}" already exists recently`, "info");
+
+  transactions.push({ id: uid(), desc, amount, type, category, account, date, recurring, notes, tags });
+  save(SK, transactions); render();
+  descInput.value = ""; amountInput.value = "";
+  notesInput.value = ""; tagsInput.value = "";
+  recurringChk.checked = false;
+  dateInput.valueAsDate = new Date();
+  toast("Transaction added");
+});
+
+editForm.addEventListener("submit", e => {
+  e.preventDefault();
+  const t = transactions.find(t => t.id === editId.value);
+  if (!t) return;
+  t.desc     = editDesc.value.trim();
+  t.amount   = parseFloat(editAmount.value);
+  t.type     = editType.value as "income" | "expense";
+  t.category = editCat.value;
+  t.account  = editAccountSel.value;
+  t.date     = editDate.value;
+  t.notes    = editNotes.value.trim();
+  t.tags     = editTags.value.split(",").map(t => t.trim()).filter(Boolean);
+  save(SK, transactions); closeEdit(); render();
+  toast("Transaction updated");
+});
+
+clearBtn.addEventListener("click", async () => {
+  if (!transactions.length) return;
+  const ok = await confirm("Clear ALL transactions? This cannot be undone.");
+  if (!ok) return;
+  transactions = []; save(SK, transactions); render();
+  toast("All transactions cleared", "info");
+});
+
+exportBtn.addEventListener("click", exportCSV);
+importBtn.addEventListener("click", () => importInput.click());
+importInput.addEventListener("change", () => {
+  if (importInput.files?.[0]) { importCSV(importInput.files[0]); importInput.value = ""; }
+});
+
+backupBtn.addEventListener("click", backup);
+restoreInput.addEventListener("change", () => {
+  if (restoreInput.files?.[0]) { restore(restoreInput.files[0]); restoreInput.value = ""; }
+});
+
+setBudgetBtn.addEventListener("click", () => {
+  const cat   = budgetCatSel.value;
+  const limit = parseFloat(budgetAmtInp.value);
+  if (!cat || isNaN(limit) || limit <= 0) return;
+  const existing = budgets.find(b => b.category === cat);
+  if (existing) existing.limit = limit;
+  else budgets.push({ category: cat, limit });
+  save(BK, budgets); budgetAmtInp.value = ""; renderBudgets();
+  toast(`Budget set for ${cat}`);
+});
+
+toggleBudget.addEventListener("click", () => {
+  const hidden = budgetPanel.classList.toggle("hidden");
+  toggleBudget.textContent = hidden ? "Manage" : "Close";
+});
+
+addAccountBtn.addEventListener("click", () => addAccountForm.classList.toggle("hidden"));
+cancelAccountBtn.addEventListener("click", () => {
+  addAccountForm.classList.add("hidden");
+  newAccountName.value = ""; newAccountBal.value = "";
+});
+saveAccountBtn.addEventListener("click", () => {
+  const name = newAccountName.value.trim();
+  const init = parseFloat(newAccountBal.value) || 0;
+  if (!name) return;
+  accounts.push({ id: uid(), name, initialBalance: init });
+  save(AK, accounts);
+  addAccountForm.classList.add("hidden");
+  newAccountName.value = ""; newAccountBal.value = "";
+  render(); toast(`Account "${name}" added`);
+});
+
+[searchInput, filterMonth, filterType, filterCat, filterAccount].forEach(el =>
+  el.addEventListener("input", () => { currentPage = 1; renderList(); })
+);
+
+closeModalBtn.addEventListener("click", closeEdit);
+editModal.addEventListener("click", e => { if (e.target === editModal) closeEdit(); });
+confirmModal.addEventListener("click", e => { if (e.target === confirmModal) confirmNo.click(); });
+
+themeToggle.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  applyTheme(cur === "dark" ? "light" : "dark");
+});
+
+document.querySelectorAll<HTMLButtonElement>(".chart-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".chart-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    const which = tab.dataset.tab!;
+    $<HTMLDivElement>("tab-pie").classList.toggle("hidden", which !== "pie");
+    $<HTMLDivElement>("tab-bar").classList.toggle("hidden", which !== "bar");
+    $<HTMLDivElement>("tab-line").classList.toggle("hidden", which !== "line");
+    $<HTMLDivElement>("tab-cal").classList.toggle("hidden", which !== "cal");
+    if (which === "bar") renderBar();
+    if (which === "line") renderLine();
+    if (which === "cal") renderCalendar();
+  });
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { closeEdit(); confirmNo.click(); }
+  if (e.key === "n" || e.key === "N") {
+    const active = document.activeElement;
+    if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) return;
+    descInput.focus();
+    $<HTMLDivElement>("add-panel").scrollIntoView({ behavior: "smooth" });
+  }
+});
+
+toggleGoalsBtn.addEventListener("click", () => {
+  goalForm.classList.toggle("hidden");
+  toggleGoalsBtn.textContent = goalForm.classList.contains("hidden") ? "+ Add Goal" : "Close";
+});
+cancelGoalBtn.addEventListener("click", () => {
+  goalForm.classList.add("hidden");
+  toggleGoalsBtn.textContent = "+ Add Goal";
+  goalName.value = ""; goalTarget.value = ""; goalDate.value = "";
+});
+saveGoalBtn.addEventListener("click", () => {
+  const name   = goalName.value.trim();
+  const target = parseFloat(goalTarget.value);
+  if (!name || isNaN(target) || target <= 0) return;
+  goals.push({ id: uid(), name, target, saved: 0, dueDate: goalDate.value });
+  save(GK, goals);
+  goalName.value = ""; goalTarget.value = ""; goalDate.value = "";
+  goalForm.classList.add("hidden");
+  toggleGoalsBtn.textContent = "+ Add Goal";
+  renderGoals(); toast(`Goal "${name}" added`);
+});
+
+transferDate.valueAsDate = new Date();
+toggleTransferBtn.addEventListener("click", () => {
+  transferForm.classList.toggle("hidden");
+  toggleTransferBtn.textContent = transferForm.classList.contains("hidden") ? "Transfer" : "Close";
+});
+doTransferBtn.addEventListener("click", () => {
+  const from   = transferFrom.value;
+  const to     = transferTo.value;
+  const amount = parseFloat(transferAmount.value);
+  const date   = transferDate.value;
+  if (!from || !to || from === to || isNaN(amount) || amount <= 0 || !date) {
+    toast("Fill all fields. From and To must be different.", "error"); return;
+  }
+  const fromName = accounts.find(a => a.id === from)?.name || "Account";
+  const toName   = accounts.find(a => a.id === to)?.name   || "Account";
+  transactions.push({ id: uid(), desc: `Transfer to ${toName}`, amount, type: "expense", category: "Other", account: from, date, recurring: false, notes: "transfer", tags: ["transfer"] });
+  transactions.push({ id: uid(), desc: `Transfer from ${fromName}`, amount, type: "income", category: "Other", account: to, date, recurring: false, notes: "transfer", tags: ["transfer"] });
+  save(SK, transactions);
+  transferAmount.value = "";
+  transferForm.classList.add("hidden");
+  toggleTransferBtn.textContent = "Transfer";
+  render(); toast(`Transferred ${peso(amount)} from ${fromName} to ${toName}`);
+});
+
+toggleDebtBtn.addEventListener("click", () => {
+  debtForm.classList.toggle("hidden");
+  toggleDebtBtn.textContent = debtForm.classList.contains("hidden") ? "+ Add Debt" : "Close";
+});
+cancelDebtBtn.addEventListener("click", () => {
+  debtForm.classList.add("hidden");
+  toggleDebtBtn.textContent = "+ Add Debt";
+  debtName.value = ""; debtAmount.value = ""; debtPerson.value = ""; debtDue.value = "";
+});
+saveDebtBtn.addEventListener("click", () => {
+  const name   = debtName.value.trim();
+  const amount = parseFloat(debtAmount.value);
+  const type   = debtType.value as "owe" | "lent";
+  const person = debtPerson.value.trim();
+  if (!name || isNaN(amount) || amount <= 0 || !person) return;
+  debts.push({ id: uid(), name, amount, type, person, dueDate: debtDue.value, settled: false });
+  save(DK, debts);
+  debtName.value = ""; debtAmount.value = ""; debtPerson.value = ""; debtDue.value = "";
+  debtForm.classList.add("hidden");
+  toggleDebtBtn.textContent = "+ Add Debt";
+  renderDebts(); toast(`Debt "${name}" added`);
+});
+
+descInput.addEventListener("blur", () => {
+  const suggested = autoCategory(descInput.value.trim());
+  if (suggested) categorySelect.value = suggested;
+});
+
+pdfReportBtn.addEventListener("click", printReport);
+
+toggleInstBtn.addEventListener("click", () => {
+  instForm.classList.toggle("hidden");
+  toggleInstBtn.textContent = instForm.classList.contains("hidden") ? "+ Add" : "Close";
+});
+cancelInstBtn.addEventListener("click", () => {
+  instForm.classList.add("hidden");
+  toggleInstBtn.textContent = "+ Add";
+});
+saveInstBtn.addEventListener("click", () => {
+  const name    = instName.value.trim();
+  const total   = parseFloat(instTotal.value);
+  const months  = parseInt(instMonths.value);
+  const start   = instStart.value;
+  const account = instAccount.value || accounts[0]?.id || "default";
+  if (!name || isNaN(total) || total <= 0 || isNaN(months) || months < 1 || !start) return;
+  installments.push({ id: uid(), name, totalAmount: total, months, paidMonths: 0, startDate: start, account });
+  save(IK, installments);
+  instName.value = ""; instTotal.value = ""; instMonths.value = ""; instStart.value = "";
+  instForm.classList.add("hidden");
+  toggleInstBtn.textContent = "+ Add";
+  renderInstallments(); toast(`Installment "${name}" added`);
+});
+
+currencySelect.addEventListener("change", () => {
+  const selected = CURRENCIES.find(c => c.code === currencySelect.value);
+  if (selected) { currency = selected; save(CK, currency); render(); toast(`Currency set to ${selected.code}`); }
+});
+
+annualYearSel.addEventListener("change", renderAnnual);
+
+// ── Sort ──────────────────────────────────────────────────────────────────────
+sortSelect?.addEventListener("change", () => { currentPage = 1; renderList(); });
+
+// ── Calculator events ─────────────────────────────────────────────────────────
+calcLoanBtn.addEventListener("click", calcLoan);
+calcSavBtn.addEventListener("click", calcSavings);
+
+document.querySelectorAll<HTMLButtonElement>(".calc-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".calc-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    const which = tab.dataset.calc!;
+    $<HTMLDivElement>("calc-loan").classList.toggle("hidden", which !== "loan");
+    $<HTMLDivElement>("calc-savings").classList.toggle("hidden", which !== "savings");
+  });
+});
+
+// ── Auth events ───────────────────────────────────────────────────────────────
+document.querySelectorAll<HTMLButtonElement>(".auth-tab").forEach(tab => {
+  tab.addEventListener("click", () => setAuthMode(tab.dataset.auth as "login" | "signup"));
+});
+
+authForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const email    = authEmail.value.trim();
+  const password = authPassword.value;
+  authError.classList.add("hidden");
+  authSubmit.textContent = "Loading...";
+  authSubmit.disabled = true;
+
+  const result = authMode === "login"
+    ? await signIn(email, password)
+    : await signUp(email, password);
+
+  authSubmit.disabled = false;
+  setAuthMode(authMode);
+
+  if (result.error) {
+    authError.textContent = result.error.message;
+    authError.classList.remove("hidden");
+    return;
+  }
+
+  if (authMode === "signup") {
+    authError.textContent = "Check your email to confirm your account!";
+    authError.style.color = "var(--income)";
+    authError.classList.remove("hidden");
+    return;
+  }
+
+  const user = result.data?.user;
+  if (user) {
+    hideAuthScreen();
+    showUserInfo(user.email || "");
+    toast(`Welcome back! ☁️`);
+  }
+});
+
+authGoogleBtn.addEventListener("click", async () => {
+  await signInWithGoogle();
+});
+
+authSkip.addEventListener("click", () => {
+  hideAuthScreen();
+  toast("Running without account — data stays local only", "info");
+});
+
+logoutBtn.addEventListener("click", async () => {
+  await signOut();
+  userInfo.classList.add("hidden");
+  showAuthScreen();
+  toast("Signed out", "info");
+});
+
+document.getElementById("onboarding-dismiss")?.addEventListener("click", dismissOnboarding);
+document.getElementById("onboarding-close")?.addEventListener("click", dismissOnboarding);
+
+bulkDeleteBtn.addEventListener("click", async () => {
+  if (!selectedIds.size) return;
+  const count = selectedIds.size;
+  const ok = await confirm(`Delete ${count} transactions?`);
+  if (!ok) return;
+  transactions = transactions.filter(t => !selectedIds.has(t.id));
+  selectedIds.clear();
+  save(SK, transactions);
+  bulkBar.classList.add("hidden");
+  render(); toast(`Deleted ${count} transactions`, "info");
+});
+
+bulkCatSel.addEventListener("change", () => {
+  const cat = bulkCatSel.value;
+  if (!cat || !selectedIds.size) return;
+  transactions.forEach(t => { if (selectedIds.has(t.id)) t.category = cat; });
+  selectedIds.clear();
+  save(SK, transactions);
+  bulkCatSel.value = "";
+  bulkBar.classList.add("hidden");
+  render(); toast(`Re-categorized to ${cat}`);
+});
+
+bulkCancelBtn.addEventListener("click", () => {
+  selectedIds.clear();
+  bulkBar.classList.add("hidden");
+  renderList();
+});
+
+notifBtn.addEventListener("click", requestNotifications);
+
+installBtn.addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  (deferredInstallPrompt as any).prompt();
+  const { outcome } = await (deferredInstallPrompt as any).userChoice;
+  if (outcome === "accepted") installBtn.classList.add("hidden");
+  deferredInstallPrompt = null;
+});
+
+document.querySelectorAll<HTMLAnchorElement>(".mobile-nav-item").forEach(item => {
+  item.addEventListener("click", e => {
+    e.preventDefault();
+    document.querySelectorAll(".mobile-nav-item").forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+    const el = document.getElementById(item.dataset.section!);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+applyTheme(load<string>(TK, "dark"));
+initCurrencySelect();
+initOfflineIndicator();
+processRecurring();
+render();
+initPinLock();
+initCollapsible();
+if (!load<boolean>(OK, false)) showOnboarding();
+
+if (load<boolean>("ft_notif", false) && Notification.permission === "granted") {
+  notifBtn.style.color = "var(--income)";
+  scheduleNotifications();
+}
+
+// Check auth state on load
+getUser().then(user => {
+  if (user) {
+    showUserInfo(user.email || "");
+    loadFromCloud().then(cloudData => {
+      if (!cloudData) return;
+      const d = cloudData as Record<string, unknown>;
+      if (d.transactions) { transactions = d.transactions as typeof transactions; save(SK, transactions); }
+      if (d.accounts)     { accounts     = d.accounts     as typeof accounts;     save(AK, accounts); }
+      if (d.budgets)      { budgets      = d.budgets       as typeof budgets;      save(BK, budgets); }
+      if (d.goals)        { goals        = d.goals         as typeof goals;        save(GK, goals); }
+      if (d.debts)        { debts        = d.debts         as typeof debts;        save(DK, debts); }
+      if (d.installments) { installments = d.installments  as typeof installments; save(IK, installments); }
+      render();
+      toast("Data synced from cloud ☁️", "info");
+    }).catch(() => {});
+  } else {
+    showAuthScreen();
+  }
+}).catch(() => {
+  // No supabase configured, run locally
+});
+
+// Listen for auth changes
+onAuthChange(user => {
+  if (user) {
+    hideAuthScreen();
+    showUserInfo(user.email || "");
+  }
+});
+
+const hint = $<HTMLDivElement>("shortcut-hint");
+hint.classList.remove("hidden");
+setTimeout(() => hint.classList.add("hidden"), 4000);

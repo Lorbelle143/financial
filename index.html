@@ -10,15 +10,85 @@
   <meta name="apple-mobile-web-app-title" content="Finance"/>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="apple-touch-icon" href="/icon.svg"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <title>Finance Tracker</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Offline Banner -->
+  <div id="offline-banner" class="offline-banner hidden">
+    📡 You're offline — changes will sync when reconnected
+  </div>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-box">
+      <div class="auth-logo">💰</div>
+      <h1 class="auth-title">Finance Tracker</h1>
+      <p class="auth-sub">Track your money, own your future</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth="login">Sign In</button>
+        <button class="auth-tab" data-auth="signup">Sign Up</button>
+      </div>
+      <form id="auth-form">
+        <input type="email" id="auth-email" placeholder="Email address" required autocomplete="email"/>
+        <input type="password" id="auth-password" placeholder="Password" required autocomplete="current-password" style="margin-top:10px"/>
+        <p id="auth-error" class="auth-error hidden"></p>
+        <button type="submit" id="auth-submit" style="margin-top:14px">Sign In</button>
+      </form>
+      <div class="auth-divider"><span>or</span></div>
+      <button id="auth-google" class="auth-google-btn">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <p class="auth-skip" id="auth-skip">Skip — use without account</p>
+    </div>
+  </div>
+
   <!-- Toast container -->
   <div id="toast-container"></div>
+
+  <!-- Offline Banner -->
+  <div id="offline-banner" class="offline-banner hidden">
+    📡 You're offline — changes will sync when reconnected
+  </div>
+
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-box">
+      <div class="auth-logo">💰</div>
+      <h1 class="auth-title">Finance Tracker</h1>
+      <p class="auth-sub">Your personal money manager</p>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login">Sign In</button>
+        <button class="auth-tab" data-tab="signup">Sign Up</button>
+      </div>
+
+      <div id="auth-login" class="auth-form">
+        <input type="email"    id="login-email"    placeholder="Email address" autocomplete="email"/>
+        <input type="password" id="login-password" placeholder="Password" autocomplete="current-password"/>
+        <button id="login-btn" class="auth-submit-btn">Sign In</button>
+        <p id="login-error" class="auth-error hidden"></p>
+      </div>
+
+      <div id="auth-signup" class="auth-form hidden">
+        <input type="email"    id="signup-email"    placeholder="Email address" autocomplete="email"/>
+        <input type="password" id="signup-password" placeholder="Password (min 6 chars)" autocomplete="new-password"/>
+        <input type="password" id="signup-confirm"  placeholder="Confirm password" autocomplete="new-password"/>
+        <button id="signup-btn" class="auth-submit-btn">Create Account</button>
+        <p id="signup-error" class="auth-error hidden"></p>
+        <p id="signup-success" class="auth-success hidden">Check your email to confirm your account!</p>
+      </div>
+
+      <div class="auth-divider"><span>or</span></div>
+      <button id="google-btn" class="google-btn">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+
+      <p class="auth-offline-note">No account? <button id="use-offline-btn" class="auth-link">Use offline (local only)</button></p>
+    </div>
+  </div>
 
   <!-- PIN Lock Screen -->
   <div id="pin-screen" class="pin-screen hidden">
@@ -64,6 +134,14 @@
           ⬆ Restore <input type="file" id="restore-input" accept=".json" style="display:none"/>
         </label>
         <select id="currency-select" style="max-width:110px;padding:7px 10px;font-size:0.82rem"></select>
+        <div id="user-info" class="user-info hidden">
+          <span id="user-email" class="user-email"></span>
+          <button id="logout-btn" class="ghost-btn">Sign Out</button>
+        </div>
+        <div id="user-info" class="user-info hidden">
+          <span id="user-email" class="user-email"></span>
+          <button id="signout-btn" class="ghost-btn">Sign Out</button>
+        </div>
       </div>
     </header>
 
@@ -162,27 +240,32 @@
     </section>
 
     <!-- Budget Limits -->
-    <section class="panel">
+    <section class="panel collapsible-panel" id="panel-budget">
       <div class="panel-header">
         <h2>Budget Limits <span class="badge" id="budget-badge"></span></h2>
-        <button id="toggle-budget" class="ghost-btn">Manage</button>
-      </div>
-      <div id="budget-panel" class="hidden">
-        <div class="budget-form">
-          <select id="budget-category">
-            <option value="Food">Food</option>
-            <option value="Transport">Transport</option>
-            <option value="Bills">Bills</option>
-            <option value="Shopping">Shopping</option>
-            <option value="Health">Health</option>
-            <option value="Entertainment">Entertainment</option>
-            <option value="Other">Other</option>
-          </select>
-          <input type="number" id="budget-amount" placeholder="Monthly limit (₱)" min="1" />
-          <button id="set-budget-btn" type="button" class="accent-btn">Set</button>
+        <div class="row-gap">
+          <button id="toggle-budget" class="ghost-btn">Manage</button>
+          <button class="collapse-toggle ghost-btn" data-panel="panel-budget" title="Collapse">▾</button>
         </div>
       </div>
-      <div id="budget-list"></div>
+      <div class="panel-body">
+        <div id="budget-panel" class="hidden">
+          <div class="budget-form">
+            <select id="budget-category">
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Bills">Bills</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Health">Health</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Other">Other</option>
+            </select>
+            <input type="number" id="budget-amount" placeholder="Monthly limit (₱)" min="1" />
+            <button id="set-budget-btn" type="button" class="accent-btn">Set</button>
+          </div>
+        </div>
+        <div id="budget-list"></div>
+      </div>
     </section>
 
     <!-- Charts -->
@@ -262,6 +345,15 @@
         </select>
         <select id="filter-account"><option value="">All Accounts</option></select>
       </div>
+      <div class="filters-row2">
+        <select id="sort-select">
+          <option value="date-desc">Date (Newest first)</option>
+          <option value="date-asc">Date (Oldest first)</option>
+          <option value="amount-desc">Amount (High → Low)</option>
+          <option value="amount-asc">Amount (Low → High)</option>
+          <option value="category-asc">Category (A → Z)</option>
+        </select>
+      </div>
       <div id="transaction-list">
         <p class="empty-msg">No transactions yet. Add one above.</p>
       </div>      <div id="pagination" class="pagination"></div>
@@ -290,21 +382,26 @@
     </section>
 
     <!-- Financial Goals -->
-    <section class="panel">
+    <section class="panel collapsible-panel" id="panel-goals">
       <div class="panel-header">
         <h2>🎯 Financial Goals</h2>
-        <button id="toggle-goals" class="ghost-btn">+ Add Goal</button>
-      </div>
-      <div id="goal-form" class="hidden">
-        <div class="form-row">
-          <input type="text"   id="goal-name"   placeholder="Goal name (e.g. Laptop fund)" />
-          <input type="number" id="goal-target" placeholder="Target amount (₱)" min="1" />
-          <input type="date"   id="goal-date"   title="Target date (optional)" />
-          <button id="save-goal-btn" class="accent-btn" type="button">Add</button>
-          <button id="cancel-goal-btn" class="ghost-btn" type="button">Cancel</button>
+        <div class="row-gap">
+          <button id="toggle-goals" class="ghost-btn">+ Add Goal</button>
+          <button class="collapse-toggle ghost-btn" data-panel="panel-goals" title="Collapse">▾</button>
         </div>
       </div>
-      <div id="goals-list"></div>
+      <div class="panel-body">
+        <div id="goal-form" class="hidden">
+          <div class="form-row">
+            <input type="text"   id="goal-name"   placeholder="Goal name (e.g. Laptop fund)" />
+            <input type="number" id="goal-target" placeholder="Target amount (₱)" min="1" />
+            <input type="date"   id="goal-date"   title="Target date (optional)" />
+            <button id="save-goal-btn" class="accent-btn" type="button">Add</button>
+            <button id="cancel-goal-btn" class="ghost-btn" type="button">Cancel</button>
+          </div>
+        </div>
+        <div id="goals-list"></div>
+      </div>
     </section>
 
     <!-- Transfer Between Accounts -->
@@ -326,69 +423,127 @@
     </section>
 
     <!-- Debt Tracker -->
-    <section class="panel">
+    <section class="panel collapsible-panel" id="panel-debt">
       <div class="panel-header">
         <h2>💸 Debt Tracker</h2>
-        <button id="toggle-debt" class="ghost-btn">+ Add Debt</button>
-      </div>
-      <div id="debt-form" class="hidden">
-        <div class="form-row">
-          <input type="text"   id="debt-name"   placeholder="Name / Description" />
-          <input type="number" id="debt-amount" placeholder="Amount (₱)" min="0.01" step="0.01" />
-          <select id="debt-type">
-            <option value="owe">I owe someone</option>
-            <option value="lent">Someone owes me</option>
-          </select>
-          <input type="text"   id="debt-person" placeholder="Person name" />
-          <input type="date"   id="debt-due"    title="Due date (optional)" />
-          <button id="save-debt-btn" class="accent-btn" type="button">Add</button>
-          <button id="cancel-debt-btn" class="ghost-btn" type="button">Cancel</button>
+        <div class="row-gap">
+          <button id="toggle-debt" class="ghost-btn">+ Add Debt</button>
+          <button class="collapse-toggle ghost-btn" data-panel="panel-debt" title="Collapse">▾</button>
         </div>
       </div>
-      <div id="debts-list"></div>
+      <div class="panel-body">
+        <div id="debt-form" class="hidden">
+          <div class="form-row">
+            <input type="text"   id="debt-name"   placeholder="Name / Description" />
+            <input type="number" id="debt-amount" placeholder="Amount (₱)" min="0.01" step="0.01" />
+            <select id="debt-type">
+              <option value="owe">I owe someone</option>
+              <option value="lent">Someone owes me</option>
+            </select>
+            <input type="text"   id="debt-person" placeholder="Person name" />
+            <input type="date"   id="debt-due"    title="Due date (optional)" />
+            <button id="save-debt-btn" class="accent-btn" type="button">Add</button>
+            <button id="cancel-debt-btn" class="ghost-btn" type="button">Cancel</button>
+          </div>
+        </div>
+        <div id="debts-list"></div>
+      </div>
     </section>
 
     <!-- Installment Tracker -->
-    <section class="panel">
+    <section class="panel collapsible-panel" id="panel-installments">
       <div class="panel-header">
         <h2>📦 Installment Tracker</h2>
-        <button id="toggle-installments" class="ghost-btn">+ Add</button>
-      </div>
-      <div id="installment-form" class="hidden">
-        <div class="form-row">
-          <input type="text"   id="inst-name"  placeholder="Item name (e.g. iPhone 15)" />
-          <input type="number" id="inst-total" placeholder="Total price (₱)" min="1" step="0.01" />
-          <input type="number" id="inst-months" placeholder="Months (e.g. 12)" min="1" max="60" />
-        </div>
-        <div class="form-row">
-          <select id="inst-account"></select>
-          <input type="date" id="inst-start" />
-          <button id="save-inst-btn" class="accent-btn" type="button">Add</button>
-          <button id="cancel-inst-btn" class="ghost-btn" type="button">Cancel</button>
+        <div class="row-gap">
+          <button id="toggle-installments" class="ghost-btn">+ Add</button>
+          <button class="collapse-toggle ghost-btn" data-panel="panel-installments" title="Collapse">▾</button>
         </div>
       </div>
-      <div id="installments-list"></div>
+      <div class="panel-body">
+        <div id="installment-form" class="hidden">
+          <div class="form-row">
+            <input type="text"   id="inst-name"  placeholder="Item name (e.g. iPhone 15)" />
+            <input type="number" id="inst-total" placeholder="Total price (₱)" min="1" step="0.01" />
+            <input type="number" id="inst-months" placeholder="Months (e.g. 12)" min="1" max="60" />
+          </div>
+          <div class="form-row">
+            <select id="inst-account"></select>
+            <input type="date" id="inst-start" />
+            <button id="save-inst-btn" class="accent-btn" type="button">Add</button>
+            <button id="cancel-inst-btn" class="ghost-btn" type="button">Cancel</button>
+          </div>
+        </div>
+        <div id="installments-list"></div>
+      </div>
     </section>
 
+    <!-- Calculator -->
     <!-- Weekly Summary -->
-    <section class="panel">
-      <h2>📊 Weekly Summary</h2>
-      <div id="weekly-summary"></div>
+    <section class="panel collapsible-panel" id="panel-weekly">
+      <div class="panel-header">
+        <h2>📊 Weekly Summary</h2>
+        <button class="collapse-toggle ghost-btn" data-panel="panel-weekly" title="Collapse">▾</button>
+      </div>
+      <div class="panel-body">
+        <div id="weekly-summary"></div>
+      </div>
     </section>
 
     <!-- Spending Heatmap -->
-    <section class="panel">
-      <h2>🔥 Spending Heatmap <span style="font-size:0.75rem;color:var(--muted);text-transform:none;letter-spacing:0">(last 12 weeks)</span></h2>
-      <div id="heatmap"></div>
+    <section class="panel collapsible-panel" id="panel-heatmap">
+      <div class="panel-header">
+        <h2>🔥 Spending Heatmap <span style="font-size:0.75rem;color:var(--muted);text-transform:none;letter-spacing:0">(last 12 weeks)</span></h2>
+        <button class="collapse-toggle ghost-btn" data-panel="panel-heatmap" title="Collapse">▾</button>
+      </div>
+      <div class="panel-body">
+        <div id="heatmap"></div>
+      </div>
     </section>
 
     <!-- Annual Overview -->
-    <section class="panel">
+    <section class="panel collapsible-panel" id="panel-annual">
       <div class="panel-header">
         <h2>📅 Annual Overview</h2>
-        <select id="annual-year" style="max-width:100px;padding:6px 10px;font-size:0.85rem"></select>
+        <div class="row-gap">
+          <select id="annual-year" style="max-width:100px;padding:6px 10px;font-size:0.85rem"></select>
+          <button class="collapse-toggle ghost-btn" data-panel="panel-annual" title="Collapse">▾</button>
+        </div>
       </div>
-      <div id="annual-list"></div>
+      <div class="panel-body">
+        <div id="annual-list"></div>
+      </div>
+    </section>
+
+    <!-- Loan & Savings Calculator -->
+    <section class="panel collapsible-panel" id="panel-calculator">
+      <div class="panel-header">
+        <h2>🧮 Loan &amp; Savings Calculator</h2>
+        <button class="collapse-toggle ghost-btn" data-panel="panel-calculator" title="Collapse">▾</button>
+      </div>
+      <div class="panel-body">
+        <div class="calc-tabs">
+          <button class="calc-tab active" data-calc="loan">Loan</button>
+          <button class="calc-tab" data-calc="savings">Savings</button>
+        </div>
+        <div id="calc-loan" class="calc-content">
+          <div class="form-row">
+            <input type="number" id="loan-principal" placeholder="Principal amount (₱)" min="1" step="0.01" />
+            <input type="number" id="loan-rate"      placeholder="Annual interest rate (%)" min="0" step="0.01" />
+            <input type="number" id="loan-term"      placeholder="Term (months)" min="1" step="1" />
+          </div>
+          <button id="calc-loan-btn" class="accent-btn" type="button">Calculate</button>
+          <div id="loan-result" class="calc-result hidden"></div>
+        </div>
+        <div id="calc-savings" class="calc-content hidden">
+          <div class="form-row">
+            <input type="number" id="sav-monthly"  placeholder="Monthly savings (₱)" min="1" step="0.01" />
+            <input type="number" id="sav-rate"     placeholder="Annual interest rate (%)" min="0" step="0.01" />
+            <input type="number" id="sav-months"   placeholder="Duration (months)" min="1" step="1" />
+          </div>
+          <button id="calc-sav-btn" class="accent-btn" type="button">Calculate</button>
+          <div id="sav-result" class="calc-result hidden"></div>
+        </div>
+      </div>
     </section>
 
   </div>
