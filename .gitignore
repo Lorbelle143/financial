@@ -1,0 +1,6 @@
+node_modules
+dist
+.env
+finance-tracker/node_modules
+finance-tracker/dist
+finance-tracker/.env
