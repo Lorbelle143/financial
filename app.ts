@@ -1671,11 +1671,14 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
-// ── Search Highlight ──────────────────────────────────────────────────────────function highlight(text: string, query: string): string {
-  if (!query) return text;
-  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+// ── Search Highlight
+function highlight(text: string, q: string): string {
+  if (!q) return text;
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, (c) => "\\" + c);
+  const re = new RegExp("(" + escaped + ")", "gi");
   return text.replace(re, '<mark class="search-highlight">$1</mark>');
 }
+
 
 // ── Collapsible Panels ────────────────────────────────────────────────────────
 function initCollapsible(): void {
@@ -1687,7 +1690,9 @@ function initCollapsible(): void {
   const applyPanel = (panelId: string, body: HTMLElement, arrow?: HTMLElement | null) => {
     const isCol = col.has(panelId);
     body.style.display = isCol ? "none" : "";
-    if (arrow) arrow.style.transform = isCol ? "rotate(-90deg)" : "";
+    if (arrow) {
+      arrow.textContent = isCol ? "▶" : "▼";
+    }
   };
 
   const toggle = (panelId: string, body: HTMLElement, arrow?: HTMLElement | null) => {
@@ -1697,32 +1702,18 @@ function initCollapsible(): void {
     applyPanel(panelId, body, arrow);
   };
 
-  // Pattern 1: collapsible-header (click whole header)
-  document.querySelectorAll<HTMLDivElement>(".collapsible-header").forEach(header => {
-    const panelId = header.dataset.panel!;
-    const panel   = header.closest(".collapsible-panel") as HTMLElement;
-    const body    = panel?.querySelector<HTMLElement>(".panel-body");
-    const arrow   = header.querySelector<HTMLElement>(".collapse-arrow");
-    if (!body) return;
-    applyPanel(panelId, body, arrow);
-    header.addEventListener("click", () => toggle(panelId, body, arrow));
-  });
-
-  // Pattern 2: collapse-toggle buttons
+  // Only collapse-toggle buttons trigger collapse — never auto-collapse
   document.querySelectorAll<HTMLButtonElement>(".collapse-toggle").forEach(btn => {
     const panelId = btn.dataset.panel!;
     const panel   = document.getElementById(panelId);
     const body    = panel?.querySelector<HTMLElement>(".panel-body");
     if (!body) return;
     applyPanel(panelId, body, btn);
-    btn.addEventListener("click", e => { e.stopPropagation(); toggle(panelId, body, btn); });
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      toggle(panelId, body, btn);
+    });
   });
-}
-function highlight(text: string, q: string): string {
-  if (!q) return text;
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(${escaped})`, "gi");
-  return text.replace(re, '<mark class="search-highlight">$1</mark>');
 }
 
 // ── Calculator ────────────────────────────────────────────────────────────────
